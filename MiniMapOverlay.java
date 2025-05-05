@@ -14,8 +14,12 @@ import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import net.minecraft.resources.ResourceLocation;
+import com.oakmods.oakfrontier.command.ToggleMinimapCommand;
+import com.oakmods.oakfrontier.procedures.CompassReturnsProcedure;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -25,7 +29,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 @EventBusSubscriber({Dist.CLIENT})
-public class MiniMapOverlay {
+public class MiniMapOverlay 
+{
 
     // Minimap size constants
     private static final int MINIMAP_SIZE = 100; // Minimap size in pixels
@@ -33,10 +38,17 @@ public class MiniMapOverlay {
     private static final int MINIMAP_RADIUS = 16; // How many blocks to show around the player
     private static final int SURFACE_SCAN_DEPTH = 120; // How deep we scan down to find the surface block
 
+    private static final ResourceLocation MINIMAP_BACKGROUND = ResourceLocation.parse("minecraft:textures/map/map_background.png");
+    private static final ResourceLocation PLAYER_ICON = ResourceLocation.parse("minecraft:textures/map/decorations/player_off_map.png");
+    private static final ResourceLocation NORTH_ICON = ResourceLocation.parse("minecraft:textures/map/decorations/north.png");
+
+    private static int frameCounter = 0;
+	private static final int UPDATE_INTERVAL = 1;
+
     // A map to store block colors dynamically
     private static Map<Block, Integer> blockColors = new HashMap<>();
 
-    static {
+    static { // MANUALLY SET EACH BLOCK IN THE FUCKING GAME!!! OR ELSE MAP LOOKS SHIT, DOESNT WORK WITH OTHER MODS CAUSE LORD FORBIT I KNOW HOW TO CODE
     	// 1 Grass
         blockColors.put(Blocks.GRASS_BLOCK, 0xFF00FF00);
         blockColors.put(Blocks.SLIME_BLOCK, 0xFF00FF00);
@@ -199,6 +211,39 @@ public class MiniMapOverlay {
         blockColors.put(Blocks.HEAVY_CORE, 0xFF007C00);
         
         // 10 dirt
+        blockColors.put(Blocks.DIRT, 0xFF976D4D);
+        blockColors.put(Blocks.COARSE_DIRT, 0xFF976D4D);
+        blockColors.put(Blocks.FARMLAND, 0xFF976D4D);
+        blockColors.put(Blocks.DIRT_PATH, 0xFF976D4D);
+        blockColors.put(Blocks.GRANITE, 0xFF976D4D);
+        blockColors.put(Blocks.GRANITE_SLAB, 0xFF976D4D);
+        blockColors.put(Blocks.GRANITE_STAIRS, 0xFF976D4D);
+        blockColors.put(Blocks.GRANITE_WALL, 0xFF976D4D);
+        blockColors.put(Blocks.POLISHED_GRANITE, 0xFF976D4D);
+        blockColors.put(Blocks.POLISHED_GRANITE_SLAB, 0xFF976D4D);
+        blockColors.put(Blocks.POLISHED_GRANITE_STAIRS, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_BUTTON, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_DOOR, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_FENCE, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_FENCE_GATE, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_HANGING_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_LOG, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_PLANKS, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_PRESSURE_PLATE, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_STAIRS, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_SLAB, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_TRAPDOOR, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_WALL_HANGING_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_WALL_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.JUNGLE_WOOD, 0xFF976D4D);
+        blockColors.put(Blocks.STRIPPED_JUNGLE_LOG, 0xFF976D4D);
+        blockColors.put(Blocks.STRIPPED_JUNGLE_WOOD, 0xFF976D4D);
+        blockColors.put(Blocks.JUKEBOX, 0xFF976D4D);
+        blockColors.put(Blocks.BROWN_MUSHROOM_BLOCK, 0xFF976D4D);
+        blockColors.put(Blocks.ROOTED_DIRT, 0xFF976D4D);
+        blockColors.put(Blocks.HANGING_ROOTS, 0xFF976D4D);
+        blockColors.put(Blocks.PACKED_MUD, 0xFF976D4D);
 
         // 11 stone
 
@@ -207,89 +252,262 @@ public class MiniMapOverlay {
         blockColors.put(Blocks.KELP_PLANT, 0xFF4040FF);
         blockColors.put(Blocks.WATER, 0xFF4040FF);
         blockColors.put(Blocks.BUBBLE_COLUMN, 0xFF4040FF);
-        
+
+        // 13 wood
+        blockColors.put(Blocks.OAK_BUTTON, 0xFF8F7748);
+        blockColors.put(Blocks.OAK_DOOR, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_FENCE, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_FENCE_GATE, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_HANGING_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_LOG, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_PLANKS, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_PRESSURE_PLATE, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_STAIRS, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_SLAB, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_TRAPDOOR, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_WALL_HANGING_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_WALL_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.OAK_WOOD, 0xFF976D4D);
+        blockColors.put(Blocks.STRIPPED_OAK_LOG, 0xFF976D4D);
+        blockColors.put(Blocks.STRIPPED_OAK_WOOD, 0xFF976D4D);
+        blockColors.put(Blocks.NOTE_BLOCK, 0xFF976D4D);
+        blockColors.put(Blocks.BOOKSHELF, 0xFF976D4D);
+        blockColors.put(Blocks.CHEST, 0xFF976D4D);
+        blockColors.put(Blocks.CRAFTING_TABLE, 0xFF976D4D);
+        blockColors.put(Blocks.TRAPPED_CHEST, 0xFF976D4D);
+        blockColors.put(Blocks.DAYLIGHT_DETECTOR, 0xFF976D4D);
+        blockColors.put(Blocks.LOOM, 0xFF976D4D);
+        blockColors.put(Blocks.BARREL, 0xFF976D4D);
+        blockColors.put(Blocks.CARTOGRAPHY_TABLE, 0xFF976D4D);
+        blockColors.put(Blocks.FLETCHING_TABLE, 0xFF976D4D);
+        blockColors.put(Blocks.LECTERN, 0xFF976D4D);
+        blockColors.put(Blocks.SMITHING_TABLE, 0xFF976D4D);
+        blockColors.put(Blocks.COMPOSTER, 0xFF976D4D);
+        blockColors.put(Blocks.BAMBOO, 0xFF976D4D);
+        blockColors.put(Blocks.DEAD_BUSH, 0xFF976D4D);
+        blockColors.put(Blocks.PETRIFIED_OAK_SLAB, 0xFF976D4D);
+        blockColors.put(Blocks.BEE_NEST, 0xFF976D4D);
+        blockColors.put(Blocks.BEEHIVE, 0xFF976D4D);
+
+        // 14 quartz
+        blockColors.put(Blocks.DIORITE, 0xFFFFFFF5);
+        blockColors.put(Blocks.DIORITE_SLAB, 0xFFFFFFF5);
+        blockColors.put(Blocks.DIORITE_STAIRS, 0xFFFFFFF5);
+        blockColors.put(Blocks.DIORITE_WALL, 0xFFFFFFF5);
+        blockColors.put(Blocks.POLISHED_DIORITE, 0xFFFFFFF5);
+        blockColors.put(Blocks.POLISHED_DIORITE_SLAB, 0xFFFFFFF5);
+        blockColors.put(Blocks.POLISHED_DIORITE_STAIRS, 0xFFFFFFF5);
+        blockColors.put(Blocks.BIRCH_BUTTON, 0xFF8F7748);
+        blockColors.put(Blocks.BIRCH_DOOR, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_FENCE, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_FENCE_GATE, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_HANGING_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_LOG, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_PLANKS, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_PRESSURE_PLATE, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_STAIRS, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_SLAB, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_TRAPDOOR, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_WALL_HANGING_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_WALL_SIGN, 0xFF976D4D);
+        blockColors.put(Blocks.BIRCH_WOOD, 0xFF976D4D);
+        blockColors.put(Blocks.STRIPPED_BIRCH_LOG, 0xFF976D4D);
+        blockColors.put(Blocks.STRIPPED_BIRCH_WOOD, 0xFF976D4D);
+        blockColors.put(Blocks.QUARTZ_BLOCK, 0xFFFFFFF5);
+        blockColors.put(Blocks.QUARTZ_BRICKS, 0xFFFFFFF5);
+        blockColors.put(Blocks.QUARTZ_PILLAR, 0xFFFFFFF5);
+        blockColors.put(Blocks.QUARTZ_SLAB, 0xFFFFFFF5);
+        blockColors.put(Blocks.QUARTZ_STAIRS, 0xFFFFFFF5);
+        blockColors.put(Blocks.SEA_LANTERN, 0xFFFFFFF5);
+        blockColors.put(Blocks.TARGET, 0xFFFFFFF5);
+
+        // 15 color orange
+        blockColors.put(Blocks.ACACIA_BUTTON, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_DOOR, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_FENCE, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_FENCE_GATE, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_HANGING_SIGN, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_LOG, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_PLANKS, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_PRESSURE_PLATE, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_SIGN, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_STAIRS, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_SLAB, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_TRAPDOOR, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_WALL_HANGING_SIGN, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_WALL_SIGN, 0xFFD87F33);
+        blockColors.put(Blocks.ACACIA_WOOD, 0xFFD87F33);
+        blockColors.put(Blocks.STRIPPED_ACACIA_LOG, 0xFFD87F33);
+        blockColors.put(Blocks.STRIPPED_ACACIA_WOOD, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_BANNER, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_BED, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_CANDLE, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_CARPET, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_CONCRETE, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_CONCRETE_POWDER, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_GLAZED_TERRACOTTA, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_STAINED_GLASS, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_STAINED_GLASS_PANE, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_TERRACOTTA, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_WALL_BANNER, 0xFFD87F33);
+        blockColors.put(Blocks.ORANGE_WOOL, 0xFFD87F33);
+        blockColors.put(Blocks.RED_SAND, 0xFFD87F33);
+        blockColors.put(Blocks.RED_SANDSTONE, 0xFFD87F33);
+        blockColors.put(Blocks.RED_SANDSTONE_SLAB, 0xFFD87F33);
+        blockColors.put(Blocks.RED_SANDSTONE_STAIRS, 0xFFD87F33);
+        blockColors.put(Blocks.RED_SANDSTONE_WALL, 0xFFD87F33);
+        blockColors.put(Blocks.CARVED_PUMPKIN, 0xFFD87F33);
+        blockColors.put(Blocks.PUMPKIN, 0xFFD87F33);
+        blockColors.put(Blocks.JACK_O_LANTERN, 0xFFD87F33);
+        blockColors.put(Blocks.TERRACOTTA, 0xFFD87F33);
+        blockColors.put(Blocks.HONEY_BLOCK, 0xFFD87F33);
+        blockColors.put(Blocks.HONEYCOMB_BLOCK, 0xFFD87F33);
+        blockColors.put(Blocks.CHISELED_COPPER, 0xFFD87F33);
+        blockColors.put(Blocks.COPPER_BLOCK, 0xFFD87F33);
+        blockColors.put(Blocks.COPPER_BULB, 0xFFD87F33);
+        blockColors.put(Blocks.COPPER_DOOR, 0xFFD87F33);
+        blockColors.put(Blocks.COPPER_GRATE, 0xFFD87F33);
+        blockColors.put(Blocks.COPPER_TRAPDOOR, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_CHISELED_COPPER, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_COPPER_BLOCK, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_COPPER_BULB, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_COPPER_DOOR, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_COPPER_GRATE, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_COPPER_TRAPDOOR, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_CUT_COPPER, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_CUT_COPPER_SLAB, 0xFFD87F33);
+        blockColors.put(Blocks.WAXED_CUT_COPPER_STAIRS, 0xFFD87F33);
+        blockColors.put(Blocks.LIGHTNING_ROD, 0xFFD87F33);
+        blockColors.put(Blocks.RAW_COPPER_BLOCK, 0xFFD87F33);
     }
 
-    @SubscribeEvent(priority = EventPriority.NORMAL)
-    public static void eventHandler(RenderGuiEvent.Pre event) {
-        // Get the screen dimensions
-        int screenWidth = event.getGuiGraphics().guiWidth();
-        int screenHeight = event.getGuiGraphics().guiHeight();
+@SubscribeEvent(priority = EventPriority.NORMAL)
+public static void eventHandler(RenderGuiEvent.Pre event) {
+    // Get screen dimensions
+    int screenWidth = event.getGuiGraphics().guiWidth();
+    int screenHeight = event.getGuiGraphics().guiHeight();
 
-        // Get the player's position and world
-        Player player = Minecraft.getInstance().player;
-        if (player == null) return;
+    // Get player and world
+    Player player = Minecraft.getInstance().player;
+    if (player == null) return;
 
-        // Get the player's world (use getCommandSenderWorld instead of player.level)
-        Level world = player.getCommandSenderWorld();  // Use this method to get the world
-        double playerX = player.getX();
-        double playerY = player.getY();
-        double playerZ = player.getZ();
+    // Check if the UI is hidden (F1 pressed)
+    boolean isGuiHidden = Minecraft.getInstance().options.hideGui;
 
-        // Set the minimap position at the top-left of the screen
-        int minimapX = 10; // Minimap X position (pixels)
-        int minimapY = 10; // Minimap Y position (pixels)
+    // Check if the player has a compass
+    boolean hasCompass = player.getOffhandItem().getItem() == Items.COMPASS;
 
-        int backgroundX = minimapX - 7;  // Background Horizontal offset 
-        int backgroundY = minimapY - 7;  // Background Vertical offset
-        int backgroundWidth = MINIMAP_SIZE + 10;  // Background width
-        int backgroundHeight = MINIMAP_SIZE + 10;  // Background height
+    // Only render the minimap if UI is not hidden and showMinimap is true
+    if (isGuiHidden || !ToggleMinimapCommand.showMinimap || !hasCompass) {
+        return;
+    }
 
-        // Render the minimap background
-        event.getGuiGraphics().blit(ResourceLocation.parse("minecraft:textures/map/map_background.png"), backgroundX, backgroundY, 0, 0, backgroundWidth, backgroundHeight, backgroundWidth, backgroundHeight);
+    Level world = player.getCommandSenderWorld();
+    double playerX = player.getX();
+    double playerY = player.getY();
+    double playerZ = player.getZ();
 
-        // Loop over the area around the player to gather world data
-        for (int x = -MINIMAP_RADIUS; x <= MINIMAP_RADIUS; x++) {
-            for (int z = -MINIMAP_RADIUS; z <= MINIMAP_RADIUS; z++) {
-                // Calculate the position in the world
-                BlockPos pos = new BlockPos((int)(playerX + x), (int)(playerY), (int)(playerZ + z));  // Cast to int
+    // Minimap positioning
+    int minimapX = 10, minimapY = 10;
+    int backgroundX = minimapX - 6, backgroundY = minimapY - 6;
+    int backgroundWidth = MINIMAP_SIZE + 10, backgroundHeight = MINIMAP_SIZE + 10;
 
-                // Get the surface block at this X, Z position
-                BlockPos surfacePos = getSurfaceBlock(world, pos);
+    event.getGuiGraphics().blit(MINIMAP_BACKGROUND, 4, 4, 0, 0, 110, 110, 110, 110);
 
-                // Get the block at the surface position
-                Block block = world.getBlockState(surfacePos).getBlock();
+    // Precompute scale factor
+    int scaleFactor = MINIMAP_SIZE / (MINIMAP_RADIUS * 2);
 
-                // Determine the color for the block using the block-to-color map
-                int blockColor = getBlockColor(block);
+    // Mutable position for reuse
+    BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
+    
+	if (true) 
+	{
+			event.getGuiGraphics().drawString(Minecraft.getInstance().font,
 
-                // Draw the block as a pixel on the minimap
-                int minimapXPos = minimapX + (x + MINIMAP_RADIUS) * (MINIMAP_SIZE / (MINIMAP_RADIUS * 2));
-                int minimapZPos = minimapY + (z + MINIMAP_RADIUS) * (MINIMAP_SIZE / (MINIMAP_RADIUS * 2));
+					CompassReturnsProcedure.execute(player), 5, 120, -1, false);
+	}
+	
+    // Loop over minimap area
+    for (int x = -MINIMAP_RADIUS; x <= MINIMAP_RADIUS; x++) 
+    {
+        for (int z = -MINIMAP_RADIUS; z <= MINIMAP_RADIUS; z++) 
+        {
+        	// Get surface block position
+            	BlockPos surfacePos = getSurfaceBlock(world, (int) (playerX + x), (int) (playerZ + z), mutablePos);
 
-                event.getGuiGraphics().fill(minimapXPos, minimapZPos, minimapXPos + 3, minimapZPos + 3, blockColor);
-            }
+            	// Get block color
+            	int blockColor = getBlockColor(world, world.getBlockState(surfacePos).getBlock(), surfacePos.getY());
+	
+           		 // Compute minimap pixel position
+            	int minimapXPos = minimapX + (x + MINIMAP_RADIUS) * scaleFactor;
+            	int minimapZPos = minimapY + (z + MINIMAP_RADIUS) * scaleFactor;
+
+            	event.getGuiGraphics().fill(minimapXPos, minimapZPos, minimapXPos + 3, minimapZPos + 3, blockColor); // change the numbers to set the pixel sizes
         }
-
-        // Draw the player icon on the minimap (e.g., a red dot)
-        int playerMinimapX = minimapX + (MINIMAP_RADIUS) * (MINIMAP_SIZE / (MINIMAP_RADIUS * 2));
-        int playerMinimapY = minimapY + (MINIMAP_RADIUS) * (MINIMAP_SIZE / (MINIMAP_RADIUS * 2));
-
-        event.getGuiGraphics().fill(playerMinimapX, playerMinimapY, playerMinimapX + 3, playerMinimapY + 3, 0xFF000000); // Red dot
-
-        event.getGuiGraphics().blit(ResourceLocation.parse("minecraft:textures/map/decorations/player_off_map.png"), playerMinimapX, playerMinimapY, 0, 0, 8, 8, 8, 8);
-
     }
 
+    frameCounter++;
+   // I barely know how this shit works.
+    // Draw player position on minimap
+    int playerMinimapX = minimapX + MINIMAP_RADIUS * scaleFactor;
+    int playerMinimapY = minimapY + MINIMAP_RADIUS * scaleFactor;
+    int playerSize = 10;
+    
+    event.getGuiGraphics().blit(PLAYER_ICON, playerMinimapX, playerMinimapY, 0, 0, playerSize, playerSize, playerSize, playerSize);
 
-    // A simple method to get the color for different blocks
-    private static int getBlockColor(Block block) {
-        return blockColors.getOrDefault(block, 0xFF000000); // Default to black if not found
-    }
+    // Draw North Marker (Arrow or icon)
+    int northX = 1;
+    int northY = 7;
+    int northSize = 10;
+    
+    
+    event.getGuiGraphics().blit(NORTH_ICON, northX, northY, 0, 0, northSize, northSize, northSize, northSize);
+}
 
-    // Get the highest block at the given X and Z coordinates (surface block)
-    private static BlockPos getSurfaceBlock(Level world, BlockPos pos) {
-        // Scan from the max build height down to find the first solid block
-        for (int y = world.getMaxBuildHeight() - 1; y >= 0; y--) {
-            BlockPos checkPos = new BlockPos(pos.getX(), y, pos.getZ());
-            Block block = world.getBlockState(checkPos).getBlock();
 
-            // Check if the block is solid and can be considered as a surface block
-            if (!block.equals(Blocks.AIR)) {
-                return checkPos;  // This is the surface block
-            }
+    // Optimized method to get the surface block
+    private static BlockPos getSurfaceBlock(Level world, int x, int z, BlockPos.MutableBlockPos mutablePos) {
+    int maxY = world.getMaxBuildHeight();
+    int minY = world.getMinBuildHeight();
+
+    for (int y = maxY - 1; y >= minY; y--) {
+        mutablePos.set(x, y, z);
+        if (!world.getBlockState(mutablePos).isAir()) {
+            return mutablePos.immutable(); // Return an immutable copy
         }
-        // If no surface block is found (which shouldn't happen), return the original position
-        return pos;
     }
+    return mutablePos.set(x, minY, z).immutable(); // Default to lowest point if no block is found
+    }
+
+    // Get block color with default
+    private static int getBlockColor(Level world, Block block, int y) {
+        int baseColor = blockColors.getOrDefault(block, 0xFF707070); // Default to stone color if block colour isn't mapped (cant be fucked to map stone manually)
+
+        // Extract RGB components from the base color
+        int r = (baseColor >> 16) & 0xFF;
+        int g = (baseColor >> 8) & 0xFF;
+        int b = baseColor & 0xFF;
+
+        // Get min and max world height dynamically
+        int minY = world.getMinBuildHeight(); // Example: -64
+        int maxY = world.getMaxBuildHeight(); // Example: 320
+
+        // Normalize height (0.0 = lowest point, 1.0 = highest point)
+        float heightFactor = (float) (y - minY) / (maxY - minY);
+
+        // Stronger contrast
+        float contrastFactor = 0.095f + (heightFactor * 1.9f); // fucked if I know HOW this works but it causes a slight contrast based off the two numbers..
+
+        // Apply contrast factor separately to R, G, and B
+        r = Math.min(255, Math.max(0, (int) (r * contrastFactor)));
+        g = Math.min(255, Math.max(0, (int) (g * contrastFactor)));
+        b = Math.min(255, Math.max(0, (int) (b * contrastFactor)));
+    
+        return (0xFF << 24) | (r << 16) | (g << 8) | b; // Return ARGB color
+    }
+// I'm 11 hours straight into coding...I think I figured out what it means to be insane....Ive broken my hand again punching shit when i GET ANOTHER FUCKING ERRORRRRRRRR!
+
+// oh also I'm doing this ON MY 22 birthday so happy birthday to me I guess, instead of partying and getting drunk im writing a mod for minecraft probally 10 people will play....happy fucking birthday
 }
