@@ -19,6 +19,12 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+
+import com.oakmods.oaksrework.procedures.ReturnFacingProcedure;
+import com.oakmods.oaksrework.procedures.ReturnCoordsProcedure;
+import com.oakmods.oaksrework.procedures.DisplayDayProcedure;
+import com.oakmods.oaksrework.procedures.DisplayCoordsProcedure;
+
 import com.oakmods.oaksrework.configuration.ClientConfiguration;
 
 import java.util.ArrayList;
@@ -53,6 +59,53 @@ public class MinimapOverlay {
         int SIZE = ClientConfiguration.MINIMAP_SCALE.get().intValue();
         if (SIZE <= 0) return;
 
+        int offsetX = 4;
+        int offsetY = 4;
+
+        Level world = player.level();
+
+        
+        // Define world first so it's available for everything below
+        if(player != null && DisplayDayProcedure.execute(player))
+        {
+        	
+
+        // Always display world day
+        long day = world.getDayTime() / 24000L + 1;
+        String dayText = "Day " + day;
+        int dayTextX = offsetX;
+        	if(DisplayCoordsProcedure.execute(player))
+        	{
+        		int dayTextY = offsetY + SIZE + 30;
+        		event.getGuiGraphics().drawString(mc.font, dayText, dayTextX + 1, dayTextY + 1, 0x000000, false); // shadow
+        		event.getGuiGraphics().drawString(mc.font, dayText, dayTextX, dayTextY, 0xFFFFFF, false); // orange
+        	}
+        	else
+        	{
+        		int dayTextY = offsetY + SIZE + 10;
+        		event.getGuiGraphics().drawString(mc.font, dayText, dayTextX + 1, dayTextY + 1, 0x000000, false); // shadow
+        		event.getGuiGraphics().drawString(mc.font, dayText, dayTextX, dayTextY, 0xFFFFFF, false); // orange
+        	}
+        
+
+        
+        }
+        
+        // coords/facing
+        if (player != null && DisplayCoordsProcedure.execute(player)) {
+            String coords = ReturnCoordsProcedure.execute(player);
+            String facing = ReturnFacingProcedure.execute(player);
+
+            int textX = offsetX;
+            int textY = offsetY + SIZE + 10;
+
+            event.getGuiGraphics().drawString(mc.font, coords, textX + 1, textY + 1, 0x000000, false);
+            event.getGuiGraphics().drawString(mc.font, facing, textX + 1, textY + 11, 0x000000, false);
+
+            event.getGuiGraphics().drawString(mc.font, coords, textX, textY, 0xFFFFFF, false);
+            event.getGuiGraphics().drawString(mc.font, facing, textX, textY + 10, 0xFFFFFF, false);
+        }
+
         if (minimapTexture == null || SIZE != lastSize) {
             minimapTexture = new DynamicTexture(SIZE, SIZE, true);
             minimapLocation = mc.getTextureManager().register("minimap", minimapTexture);
@@ -60,16 +113,12 @@ public class MinimapOverlay {
             lastSize = SIZE;
         }
 
-        Level world = player.level();
-        int offsetX = 4;
-        int offsetY = 4;
         BlockPos center = player.blockPosition();
         long currentTime = System.currentTimeMillis();
 
-        if (currentTime - lastUpdateTime >= 250) {
+        if (currentTime - lastUpdateTime >= ClientConfiguration.MINIMAP_REFRESH.get().intValue()) {
             lastUpdateTime = currentTime;
 
-            // Generate minimap
             for (int dz = -SIZE / 2; dz < SIZE / 2; dz++) {
                 for (int dx = -SIZE / 2; dx < SIZE / 2; dx++) {
                     int worldX = center.getX() + dx;
@@ -94,8 +143,7 @@ public class MinimapOverlay {
 
                     // --- Biome Tinting with Brightening ---
                     int tintR = 255, tintG = 255, tintB = 255;
-
-                    // Apply biome tint for foliage/grass-like blocks
+                    
                     boolean applyBiomeTint = false;
                     MapColor defaultMapColor = blockState.getBlock().defaultMapColor();
                     if (defaultMapColor == MapColor.PLANT || defaultMapColor == MapColor.GRASS) {
@@ -104,14 +152,13 @@ public class MinimapOverlay {
 
                     if (applyBiomeTint) {
                         var biome = world.getBiome(pos).value();
-                        int tintColor = biome.getFoliageColor(); // or biome.getGrassColor(pos.getX(), pos.getZ())
-
+                        int tintColor = biome.getFoliageColor();
                         tintR = (tintColor >> 16) & 0xFF;
                         tintG = (tintColor >> 8) & 0xFF;
                         tintB = tintColor & 0xFF;
 
                         // Brighten tint by blending with white
-                        float brightenFactor = 0.5f; // Adjust this from 0 to 1 as needed
+                        float brightenFactor = 0.5f;
                         tintR = (int) (tintR + (255 - tintR) * brightenFactor);
                         tintG = (int) (tintG + (255 - tintG) * brightenFactor);
                         tintB = (int) (tintB + (255 - tintB) * brightenFactor);
@@ -124,10 +171,8 @@ public class MinimapOverlay {
                     // --- Terrain height-based lighting ---
                     int heightHere = groundY;
                     int heightRight = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX + 1, worldZ);
-                    int heightDown  = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ + 1);
-                    int slopeX = heightHere - heightRight;
-                    int slopeZ = heightHere - heightDown;
-                    int slope = slopeX + slopeZ;
+                    int heightDown = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ + 1);
+                    int slope = (heightHere - heightRight) + (heightHere - heightDown);
 
                     float brightness = 1.0f - (slope * 0.05f);
                     brightness = Mth.clamp(brightness, 0.6f, 1.0f);
@@ -137,7 +182,6 @@ public class MinimapOverlay {
                     b = (int)(b * brightness);
 
                     int finalColor = (0xFF << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
-
                     int px = dx + SIZE / 2;
                     int pz = dz + SIZE / 2;
 
@@ -162,22 +206,20 @@ public class MinimapOverlay {
 
             for (Player other : world.players()) {
                 if (other == player) continue;
-
                 double dx = other.getX() - px;
                 double dz = other.getZ() - pz;
 
                 if (Math.abs(dx) <= halfSize && Math.abs(dz) <= halfSize) {
                     cachedPlayerIcons.add(new PlayerIconData(
-                        (float) (offsetX + halfSize + dx),
-                        (float) (offsetY + halfSize + dz),
-                        180 + other.getYRot()
+                            (float)(offsetX + halfSize + dx),
+                            (float)(offsetY + halfSize + dz),
+                            180 + other.getYRot()
                     ));
                 }
             }
         }
 
         int backgroundOffset = 4;
-
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.enableBlend();
@@ -186,10 +228,10 @@ public class MinimapOverlay {
         RenderSystem.setShaderColor(1, 1, 1, 1);
 
         event.getGuiGraphics().blit(
-            ResourceLocation.withDefaultNamespace("textures/map/map_background.png"),
-            offsetX - backgroundOffset, offsetY - backgroundOffset,
-            0, 0, SIZE + (backgroundOffset * 2), SIZE + (backgroundOffset * 2),
-            SIZE + (backgroundOffset * 2), SIZE + (backgroundOffset * 2)
+                ResourceLocation.withDefaultNamespace("textures/map/map_background.png"),
+                offsetX - backgroundOffset, offsetY - backgroundOffset,
+                0, 0, SIZE + (backgroundOffset * 2), SIZE + (backgroundOffset * 2),
+                SIZE + (backgroundOffset * 2), SIZE + (backgroundOffset * 2)
         );
 
         event.getGuiGraphics().blit(minimapLocation, offsetX, offsetY, 0, 0, SIZE, SIZE, SIZE, SIZE);
@@ -198,56 +240,35 @@ public class MinimapOverlay {
 
         // Player icon (you)
         float iconSize = 4f;
-        float scaleFactor = 2.0f; // your desired scale
+        float scaleFactor = 2.0f;
 
         poseStack.pushPose();
-
-       // Move to the icon's center position on screen
         poseStack.translate(offsetX + SIZE / 2f, offsetY + SIZE / 2f, 0);
+        poseStack.mulPose(Axis.ZP.rotationDegrees(180 + player.getYRot()));
+        poseStack.scale(scaleFactor, scaleFactor, 1f);
+        poseStack.translate(-iconSize / 2f, -iconSize / 2f, 0);
 
-       // Rotate around Z axis by player rotation
-       poseStack.mulPose(Axis.ZP.rotationDegrees(180 + player.getYRot()));
+        event.getGuiGraphics().blit(
+                ResourceLocation.withDefaultNamespace("textures/map/decorations/player.png"),
+                0, 0, 0, 0, (int)iconSize, (int)iconSize, (int)iconSize, (int)iconSize
+        );
 
-       // Scale the icon
-       poseStack.scale(scaleFactor, scaleFactor, 1f);
-
-       // Now move the drawing position so the icon is centered on that rotation/scaling origin
-       poseStack.translate(-iconSize / 2f, -iconSize / 2f, 0);
-
-       event.getGuiGraphics().blit(
-           ResourceLocation.withDefaultNamespace("textures/map/decorations/player.png"),
-           0, 0, 0, 0,
-           (int)iconSize, (int)iconSize, (int)iconSize, (int)iconSize
-       );
-
-       poseStack.popPose();
+        poseStack.popPose();
 
         // Other players
         for (PlayerIconData icon : cachedPlayerIcons) {
-           poseStack.pushPose();
+            poseStack.pushPose();
+            poseStack.translate(icon.screenX, icon.screenY, 0);
+            poseStack.mulPose(Axis.ZP.rotationDegrees(icon.rotation));
+            poseStack.scale(scaleFactor, scaleFactor, 1f);
+            poseStack.translate(-iconSize / 2f, -iconSize / 2f, 0);
 
-           // Translate to icon position on screen
-           poseStack.translate(icon.screenX, icon.screenY, 0);
-
-           // Rotate
-           poseStack.mulPose(Axis.ZP.rotationDegrees(icon.rotation));
-
-           // Scale
-           poseStack.scale(scaleFactor, scaleFactor, 1f);
-
-           // Center icon on pivot point
-           poseStack.translate(-iconSize / 2f, -iconSize / 2f, 0);
-
-           event.getGuiGraphics().blit(
-               ResourceLocation.withDefaultNamespace("textures/map/decorations/player.png"),
-               0, 0, 0, 0,
-               (int)iconSize, (int)iconSize, (int)iconSize, (int)iconSize
-           );
-
-           poseStack.popPose();
-       }
-
-
+            event.getGuiGraphics().blit(
+                    ResourceLocation.withDefaultNamespace("textures/map/decorations/player.png"),
+                    0, 0, 0, 0, (int)iconSize, (int)iconSize, (int)iconSize, (int)iconSize
+            );
+            poseStack.popPose();
+        }
 
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
