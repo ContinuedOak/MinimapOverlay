@@ -64,38 +64,21 @@ public class MinimapOverlay {
 
         Level world = player.level();
 
-        
-        // Define world first so it's available for everything below
-        if(player != null && DisplayDayProcedure.execute(player))
-        {
-        	
-
         // Always display world day
-        long day = world.getDayTime() / 24000L + 1;
-        String dayText = "Day " + day;
-        int dayTextX = offsetX;
-        	if(DisplayCoordsProcedure.execute(player))
-        	{
-        		int dayTextY = offsetY + SIZE + 30;
-        		event.getGuiGraphics().drawString(mc.font, dayText, dayTextX + 1, dayTextY + 1, 0x000000, false); // shadow
-        		event.getGuiGraphics().drawString(mc.font, dayText, dayTextX, dayTextY, 0xFFFFFF, false); // orange
-        	}
-        	else
-        	{
-        		int dayTextY = offsetY + SIZE + 10;
-        		event.getGuiGraphics().drawString(mc.font, dayText, dayTextX + 1, dayTextY + 1, 0x000000, false); // shadow
-        		event.getGuiGraphics().drawString(mc.font, dayText, dayTextX, dayTextY, 0xFFFFFF, false); // orange
-        	}
-        
+        if (DisplayDayProcedure.execute(player)) {
+            long day = world.getDayTime() / 24000L + 1;
+            String dayText = "Day " + day;
+            int dayTextX = offsetX;
+            int dayTextY = offsetY + SIZE + (DisplayCoordsProcedure.execute(player) ? 30 : 10);
 
-        
+            event.getGuiGraphics().drawString(mc.font, dayText, dayTextX + 1, dayTextY + 1, 0x000000, false); // shadow
+            event.getGuiGraphics().drawString(mc.font, dayText, dayTextX, dayTextY, 0xFFFFFF, false);         // white
         }
-        
+
         // coords/facing
-        if (player != null && DisplayCoordsProcedure.execute(player)) {
+        if (DisplayCoordsProcedure.execute(player)) {
             String coords = ReturnCoordsProcedure.execute(player);
             String facing = ReturnFacingProcedure.execute(player);
-
             int textX = offsetX;
             int textY = offsetY + SIZE + 10;
 
@@ -119,13 +102,26 @@ public class MinimapOverlay {
         if (currentTime - lastUpdateTime >= ClientConfiguration.MINIMAP_REFRESH.get().intValue()) {
             lastUpdateTime = currentTime;
 
+            boolean isNether = world.dimension() == Level.NETHER;
+
             for (int dz = -SIZE / 2; dz < SIZE / 2; dz++) {
                 for (int dx = -SIZE / 2; dx < SIZE / 2; dx++) {
                     int worldX = center.getX() + dx;
                     int worldZ = center.getZ() + dz;
-                    int groundY = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ);
-                    int sampleY = Math.min(groundY + 3, world.getMaxBuildHeight() - 1);
 
+                    // --- Sampling height ---
+                    int sampleY;
+                    int groundY;
+
+                    if (isNether) {
+                        sampleY = center.getY() + 9; // Use player's current Y level in Nether
+                        groundY = sampleY - 2;
+                    } else {
+                        groundY = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ);
+                        sampleY = Math.min(groundY + 3, world.getMaxBuildHeight() - 1);
+                    }
+
+                    // Sample block
                     BlockPos pos = new BlockPos(worldX, sampleY, worldZ);
                     BlockState blockState = world.getBlockState(pos);
                     if (blockState.isAir()) {
@@ -143,7 +139,6 @@ public class MinimapOverlay {
 
                     // --- Biome Tinting with Brightening ---
                     int tintR = 255, tintG = 255, tintB = 255;
-                    
                     boolean applyBiomeTint = false;
                     MapColor defaultMapColor = blockState.getBlock().defaultMapColor();
                     if (defaultMapColor == MapColor.PLANT || defaultMapColor == MapColor.GRASS) {
@@ -170,8 +165,8 @@ public class MinimapOverlay {
 
                     // --- Terrain height-based lighting ---
                     int heightHere = groundY;
-                    int heightRight = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX + 1, worldZ);
-                    int heightDown = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ + 1);
+                    int heightRight = isNether ? groundY : world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX + 1, worldZ);
+                    int heightDown = isNether ? groundY : world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ + 1);
                     int slope = (heightHere - heightRight) + (heightHere - heightDown);
 
                     float brightness = 1.0f - (slope * 0.05f);
