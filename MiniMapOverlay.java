@@ -8,6 +8,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
@@ -27,11 +28,14 @@ import com.oakmods.minimap.procedures.ReturnFacingProcedure;
 import com.oakmods.minimap.procedures.ReturnCoordsProcedure;
 import com.oakmods.minimap.procedures.DisplayDayProcedure;
 import com.oakmods.minimap.procedures.DisplayCoordsProcedure;
+import com.oakmods.minimap.procedures.ReturnCavemodeProcedure;
 import com.oakmods.minimap.configuration.ClientConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.neoforged.neoforge.common.damagesource.IScalingFunction;
+import net.neoforged.neoforge.common.damagesource.IScalingFunction;
 
 @EventBusSubscriber(value = Dist.CLIENT)
 public class MinimapOverlay {
@@ -122,7 +126,16 @@ public class MinimapOverlay {
             lastUpdateTime = currentTime;
 
             boolean isNether = world.dimension() == Level.NETHER;
-
+            boolean isEnd = world.dimension() == Level.END;
+            boolean isOverworld = world.dimension() == Level.OVERWORLD;
+            
+            boolean isCavemode = ReturnCavemodeProcedure.execute(
+                player.level(), 
+                player.getX(), 
+                player.getY() + 7, 
+                player.getZ()
+            );
+            
             for (int dz = -SIZE / 2; dz < SIZE / 2; dz++) {
                 for (int dx = -SIZE / 2; dx < SIZE / 2; dx++) {
                     int worldX = center.getX() + dx;
@@ -132,11 +145,16 @@ public class MinimapOverlay {
                     int groundY;
 
                     if (isNether) {
-                        sampleY = center.getY() + 2;
+                        sampleY = center.getY();
                         groundY = sampleY;
-                    } else {
-                        groundY = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ);
-                        sampleY = Math.min(groundY + 3, world.getMaxBuildHeight() - 1);
+                    } else{
+                    	if(isCavemode && ClientConfiguration.CAVE_MODE.get() && isOverworld){
+                    		sampleY = center.getY();
+                    		groundY = sampleY;
+                    	}else{
+                    		groundY = world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ);
+                    		sampleY = Math.min(groundY + 3, world.getMaxBuildHeight() - 1);
+                    	}
                     }
 
                     BlockPos pos = new BlockPos(worldX, sampleY, worldZ);
@@ -157,7 +175,7 @@ public class MinimapOverlay {
                     // --- Biome Tinting with Brightening ---
                     int tintR = 255, tintG = 255, tintB = 255;
                     MapColor defaultMapColor = blockState.getBlock().defaultMapColor();
-                    boolean applyBiomeTint = defaultMapColor == MapColor.PLANT || defaultMapColor == MapColor.GRASS;
+                    boolean applyBiomeTint = defaultMapColor == MapColor.PLANT || defaultMapColor == MapColor.GRASS || defaultMapColor == MapColor.WATER;
 
                     if (applyBiomeTint) {
                         int tintColor = world.getBiome(pos).value().getFoliageColor();
@@ -166,7 +184,7 @@ public class MinimapOverlay {
                         tintB = tintColor & 0xFF;
 
                         // Brighten tint by blending with white
-                        float brightenFactor = 0.5f;
+                        float brightenFactor = ClientConfiguration.MINIMAP_BIOME_BRIGHTNESS.get().floatValue();
                         tintR = (int)(tintR + (255 - tintR) * brightenFactor);
                         tintG = (int)(tintG + (255 - tintG) * brightenFactor);
                         tintB = (int)(tintB + (255 - tintB) * brightenFactor);
@@ -182,11 +200,28 @@ public class MinimapOverlay {
                     int heightDown = isNether ? groundY : world.getHeight(Heightmap.Types.WORLD_SURFACE, worldX, worldZ + 1);
                     int slope = (heightHere - heightRight) + (heightHere - heightDown);
 
+                    int blockLight = world.getBrightness(LightLayer.BLOCK, pos);
+                    
+                    // Convert to 0–1 range
+                    float blockBrightness = blockLight / 15f;
+                    float skyBrightness;
+                    float celestialAngle = world.getTimeOfDay(1.0f);
+
+                    skyBrightness = Mth.clamp(Mth.cos(celestialAngle * 2f * (float)Math.PI) * 0.5f + 0.5f, 0f, 1f);
+                    
                     float brightness = Mth.clamp(1.0f - (slope * 0.05f), 0.6f, 1.0f);
 
-                    r *= brightness;
-                    g *= brightness;
-                    b *= brightness;
+                    float totalBrightness = 0.6f * skyBrightness + 0.4f * blockBrightness;
+
+                    if(ClientConfiguration.DYNAMIC_LIGHT.get() && !isCavemode){
+                    	r *= brightness + 1 * totalBrightness;
+                    	g *= brightness + 1 * totalBrightness;
+                    	b *= brightness + 1 * totalBrightness;
+                    }else{
+                    	r *= brightness;
+                    	g *= brightness;
+                    	b *= brightness;
+                    }
 
                     int finalColor = (0xFF << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
                     int px = dx + SIZE / 2;
@@ -236,7 +271,7 @@ public class MinimapOverlay {
         RenderSystem.setShaderColor(1, 1, 1, 1);
 
         event.getGuiGraphics().blit(
-                ResourceLocation.withDefaultNamespace("textures/map/map_background.png"),
+                ResourceLocation.withDefaultNamespace(ClientConfiguration.MINIMAP_BG.get()), // Minimap Background File Path
                 offsetX - backgroundOffset, offsetY - backgroundOffset,
                 0, 0, SIZE + (backgroundOffset * 2), SIZE + (backgroundOffset * 2),
                 SIZE + (backgroundOffset * 2), SIZE + (backgroundOffset * 2)
@@ -257,13 +292,16 @@ public class MinimapOverlay {
         poseStack.translate(-iconSize / 2f, -iconSize / 2f, 0);
 
         event.getGuiGraphics().blit(
-                ResourceLocation.withDefaultNamespace("textures/map/decorations/player.png"),
+                ResourceLocation.withDefaultNamespace(ClientConfiguration.USER_ICON.get()), // Client's Icon
                 0, 0, 0, 0, (int)iconSize, (int)iconSize, (int)iconSize, (int)iconSize
         );
         poseStack.popPose();
 
         // Other players – colour set by UUID (This allows for unquie colours on players and also keeps their colors the exact same between sessions and worlds)
         for (PlayerIconData icon : cachedPlayerIcons) {
+        	
+        	if(ClientConfiguration.HIDE_ONLINE_PLAYERS.get()) // If true, this is stop the rest of the code from running also saving resources on the users end
+        	   return;
             poseStack.pushPose();
             poseStack.translate(icon.screenX, icon.screenY, 0);
             poseStack.mulPose(Axis.ZP.rotationDegrees(icon.rotation));
@@ -277,7 +315,7 @@ public class MinimapOverlay {
 
             RenderSystem.setShaderColor(red, green, blue, 1f);
             event.getGuiGraphics().blit(
-                    ResourceLocation.withDefaultNamespace("textures/map/decorations/player.png"),
+                    ResourceLocation.withDefaultNamespace(ClientConfiguration.PLAYER_ICON.get()), // Other's Icon
                     0, 0, 0, 0, (int)iconSize, (int)iconSize, (int)iconSize, (int)iconSize
             );
             RenderSystem.setShaderColor(1, 1, 1, 1);
